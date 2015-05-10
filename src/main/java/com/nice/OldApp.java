@@ -5,14 +5,13 @@ import cascading.flow.Flow;
 import cascading.flow.FlowConnector;
 import cascading.flow.FlowDef;
 import cascading.flow.hadoop.HadoopFlowConnector;
-import cascading.pipe.*;
+import cascading.pipe.Each;
+import cascading.pipe.Pipe;
 import cascading.property.AppProps;
 import cascading.scheme.hadoop.TextDelimited;
 import cascading.tap.Tap;
 import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
-import com.ccih.common.generators.repositories.HBaseIDRepository;
-import com.ccih.common.util.PlatformException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -20,14 +19,15 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import wd.RowKeyDistributorByHashPrefix;
 
 import java.io.IOException;
 import java.util.Properties;
 
 import static org.kohsuke.args4j.ExampleMode.ALL;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
 
 
 /**
@@ -35,11 +35,11 @@ import org.kohsuke.args4j.Option;
  * the flow reads the session file from Sprint extracts the sessionID
  * As String and HBaseIDGen is invoked on each session to generate an ID if necessary
  */
-public class App {
+public class OldApp {
 
 //    private static final String NAME_NODE_1 = "il1-r1-perf-nam-1.saas.workgroup";
     private static final String NAME_NODE_1 = "vbox.localdomain";
-    public static final int MAX_BUCKETS = 32;
+    private static final int MAX_BUCKETS = 32;
     public static String ID_GEN_TABLE_NAME = "ID_GEN";
     public static String ID_GEN_TABLE_NAME_CF = "d";
     public static String ID_GEN_TABLE_NAME_QF = "ID";
@@ -51,8 +51,6 @@ public class App {
 //	private static final String JOB_TRACKER = "il1-r1-perf-nam-2.saas.workgroup:9001";
     private static final String JOB_TRACKER = NAME_NODE_1+ ":9001";
 
-    private HBaseIDRepository hBaseIDRepository = new HBaseIDRepository();
-
     @Option(name="-filePath")
     private String filePath = "/";
 
@@ -60,10 +58,11 @@ public class App {
 
     public static void main(String[] args) throws Throwable
     {
-        new App().doMain(args);
+        new OldApp().doMain(args);
     }
 
-    private void doMain(String[] args) throws IOException, PlatformException {
+    private void doMain(String[] args) throws IOException
+    {
         CmdLineParser parser = new CmdLineParser(this);
 
         // if you have a wider console, you could increase the value;
@@ -111,7 +110,7 @@ public class App {
         conf.set("mapred.job.tracker", JOB_TRACKER);
         conf.set("mapred.map.tasks", "84");
 
-        JobConf jobConf = new JobConf(conf, App.class);
+        JobConf jobConf = new JobConf(conf, OldApp.class);
         Properties properties = AppProps.appProps().setName("id-generator").setVersion("1.0").buildProperties(jobConf);
 
         FlowConnector flowConnector = new HadoopFlowConnector(properties);
@@ -138,13 +137,28 @@ public class App {
         Flow<JobConf> flow = flowConnector.connect(flowDef);
         flow.complete();    }
 
-    public void createHBaseTable() throws IOException, PlatformException
-    {
+    public static void createHBaseTable() throws IOException {
         Configuration hBaseConfig = getConfiguration();
-        hBaseIDRepository.configureHBase(hBaseConfig, ID_GEN_TABLE_NAME);
+        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
+        if (hbaseAdmin.tableExists(ID_GEN_TABLE_NAME) ) {
+            return;
+        }
+        HTableDescriptor desc = new HTableDescriptor(ID_GEN_TABLE_NAME);
+        desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
+        hbaseAdmin.createTable(desc, createSplitKeys( MAX_BUCKETS ));
     }
 
 
+    /**
+     * create split keys
+     * @param numberOfBuckets
+     * @return
+     */
+    private static byte[][] createSplitKeys(int numberOfBuckets) {
+        RowKeyDistributorByHashPrefix distributor = new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash(MAX_BUCKETS));
+        byte[][] allDistributedKeys = distributor.getAllDistributedKeys(new byte[0]);
+        return allDistributedKeys;
+    }
 
 
     /**

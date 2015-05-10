@@ -41,9 +41,15 @@ public class HBaseIDGen extends BaseOperation implements Function {
     @Override
     public void operate(FlowProcess flowProcess, FunctionCall functionCall) {
         TupleEntry tupleEntry = functionCall.getArguments();
-        String systemIDAsString = tupleEntry.getTuple().getString(0);
-        String sessionIDAsString = tupleEntry.getTuple().getString(1);
-        logger.info( "@@@ systemID: " + systemIDAsString + ", sessionID:" + sessionIDAsString);
+//NOTE: in "real data" we use this code, as 1st item is system-id and 2nd item is session-id
+//        String systemIDAsString = tupleEntry.getTuple().getString(0);
+//        String sessionIDAsString = tupleEntry.getTuple().getString(1);
+
+//NOTE: in data from Vertica I use this line, as the file includes nothing but the session-id:
+        String sessionIDAsString = tupleEntry.getTuple().getString( 0 );        //NOTE: new data
+        logger.info( "@@@ systemID: "
+//                + systemIDAsString
+                + ", sessionID: " + sessionIDAsString);
         try {
             hBaseDAL.generateSessionID( sessionIDAsString,hTable );
         } catch (IOException e) {
