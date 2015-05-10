@@ -17,18 +17,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HBaseDAL implements Serializable {
-
+public class HBaseDAL implements Serializable
+{
     private static final Logger logger = LoggerFactory.getLogger(HBaseDAL.class);
-    private RowKeyDistributorByHashPrefix distributor;
 
-
-    public HBaseDAL() {
-        this.distributor = new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash( App.MAX_BUCKETS) );
-    }
-
-
-    public long generateSessionID(String sessionIDAsString,HTable hTable) throws IOException {
+    public long generateSessionID(String sessionIDAsString,HTable hTable) throws IOException
+    {
+        RowKeyDistributorByHashPrefix distributor =
+                new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash( App.MAX_BUCKETS) );
 
         long milis = System.currentTimeMillis();
 
