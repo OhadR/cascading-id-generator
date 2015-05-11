@@ -13,12 +13,9 @@ import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
 import com.ccih.common.generators.repositories.HBaseIDRepository;
 import com.ccih.common.util.PlatformException;
+import com.ccih.common.util.security.TenantHelper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
@@ -37,25 +34,18 @@ import org.kohsuke.args4j.Option;
  */
 public class App {
 
-//    private static final String NAME_NODE_1 = "il1-r1-perf-nam-1.saas.workgroup";
-    private static final String NAME_NODE_1 = "vbox.localdomain";
     public static final int MAX_BUCKETS = 32;
-    public static String ID_GEN_TABLE_NAME = "ID_GEN";
+    public static String ID_GEN_TABLE_NAME = TenantHelper.getTenantAwareTableName("GeneratedSessionID");
     public static String ID_GEN_TABLE_NAME_CF = "d";
     public static String ID_GEN_TABLE_NAME_QF = "ID";
-    //VBOX
-//    private static final String HDFS = "hdfs://vbox.localdomain:9000";
-//    private static final String JOB_TRACKER = "vbox.localdomain:9001";
-    //CDU
-	private static final String HDFS = "hdfs://" + NAME_NODE_1 + ":9000";
-//	private static final String JOB_TRACKER = "il1-r1-perf-nam-2.saas.workgroup:9001";
-    private static final String JOB_TRACKER = NAME_NODE_1+ ":9001";
 
     private HBaseIDRepository hBaseIDRepository = new HBaseIDRepository();
 
     @Option(name="-filePath")
     private String filePath = "/";
 
+    @Option(name="-nameNode")
+    private String nameNode = "vbox.localdomain";
 
 
     public static void main(String[] args) throws Throwable
@@ -100,7 +90,12 @@ public class App {
             return;
         }
 
+        Config.instance().setNameNode( nameNode );
+
         System.out.println("input file: " + filePath);
+
+        String HDFS = "hdfs://" + nameNode + ":9000";
+        String JOB_TRACKER = nameNode + ":9001";
 
 
         //create table if not exists.
@@ -140,24 +135,7 @@ public class App {
 
     public void createHBaseTable() throws IOException, PlatformException
     {
-        Configuration hBaseConfig = getConfiguration();
+        Configuration hBaseConfig = Config.instance().getConfiguration();
         hBaseIDRepository.configureHBase(hBaseConfig, ID_GEN_TABLE_NAME);
     }
-
-
-
-
-    /**
-     * This method sets the HBase configuration
-     * @return - configuration
-     */
-    public static Configuration getConfiguration() {
-        Configuration hBaseConfig = HBaseConfiguration.create();
-        hBaseConfig.setInt("timeout", 120000);
-        hBaseConfig.set("hbase.master", "*" + NAME_NODE_1 + ":9000*");
-        hBaseConfig.set("hbase.zookeeper.quorum", NAME_NODE_1);
-        hBaseConfig.set("hbase.zookeeper.property.clientPort", "2181");
-        return hBaseConfig;
-    }
-
 }

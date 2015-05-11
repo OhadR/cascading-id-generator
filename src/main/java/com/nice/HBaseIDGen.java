@@ -31,7 +31,7 @@ public class HBaseIDGen extends BaseOperation implements Function {
 //            Connection connection = ConnectionFactory.createConnection(config);
 //            Table table = connection.getTable(TableName.valueOf("table1"));
 
-            hTable = new HTable(App.getConfiguration(), App.ID_GEN_TABLE_NAME);
+            hTable = new HTable( Config.instance().getConfiguration(), App.ID_GEN_TABLE_NAME );
             logger.info("@@@ Opened HTable:" + new String(hTable.getTableName()));
         } catch (IOException e) {
             logger.error("Cannot open HTable:" + e.getMessage());
