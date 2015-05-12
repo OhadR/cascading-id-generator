@@ -1,13 +1,12 @@
 package com.nice;
 
 
-import com.ccih.common.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
-//import wd.RowKeyDistributorByHashPrefix;
+import wd.RowKeyDistributorByHashPrefix;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -28,7 +27,8 @@ public class HBaseDAL implements Serializable
      * @return true if already exists.
      * @throws IOException
      */
-    public boolean generateSessionID(String sessionIDAsString,HTable hTable) throws IOException
+    public boolean generateSessionID(String sessionIDAsString,HTable hTable,
+                                     boolean checkBeforePut) throws IOException
     {
         RowKeyDistributorByHashPrefix distributor =
                 new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash( App.MAX_BUCKETS) );
@@ -39,7 +39,7 @@ public class HBaseDAL implements Serializable
                 sessionIDAsString.getBytes() );
 
         boolean exists = false;
-        if(App.isCheckBeforePut())
+        if( checkBeforePut )
         {
             hTable.put( put );
         }

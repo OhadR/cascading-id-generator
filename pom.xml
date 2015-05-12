@@ -88,11 +88,11 @@
             <version>2.32</version>
         </dependency>
 
-        <dependency>
+        <!--dependency>
             <groupId>com.ccih.common</groupId>
             <artifactId>ccih-common-generators</artifactId>
             <version>6.5.2200-SNAPSHOT</version>
-        </dependency>
+        </dependency-->
 
     </dependencies>
 

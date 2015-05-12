@@ -11,18 +11,12 @@ import cascading.scheme.hadoop.TextDelimited;
 import cascading.tap.Tap;
 import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
-import com.ccih.base.model.RetryStrategy;
-import com.ccih.base.model.configuration.ConfigurationValue;
-import com.ccih.base.model.configuration.ConfigurationValueDTO;
-import com.ccih.base.model.configuration.ConfigurationValueInterface;
-import com.ccih.base.service.ConfigurationServiceClient;
-import com.ccih.base.service.ConfigurationServiceClientImpl;
-import com.ccih.base.service.ServiceUtils;
-import com.ccih.common.generators.repositories.HBaseIDRepository;
-import com.ccih.common.util.PlatformException;
-import com.ccih.common.util.security.TenantHelper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
@@ -33,6 +27,7 @@ import static org.kohsuke.args4j.ExampleMode.ALL;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import wd.RowKeyDistributorByHashPrefix;
 
 
 /**
@@ -44,11 +39,9 @@ public class App {
 
     public static final int MAX_BUCKETS = 32;
     private static final String BIGDATA_MIGRATION_IDGENERATION_DATE = "|BIGDATA|Migration|IDGenerationDate|";
-    public static String ID_GEN_TABLE_NAME = TenantHelper.getTenantAwareTableName("GeneratedSessionID");
+    private static String ID_GEN_TABLE_NAME = "GeneratedSessionID";      //NOTE: need to add tenant-name
     public static String ID_GEN_TABLE_NAME_CF = "d";
     public static String ID_GEN_TABLE_NAME_QF = "ID";
-
-    private HBaseIDRepository hBaseIDRepository = new HBaseIDRepository();
 
     @Option(name="-filePath")
     private String filePath = "/";
@@ -57,14 +50,17 @@ public class App {
     private static String nameNode = "vbox.localdomain";
 
     @Option(name="-checkBeforePut")
-    private static boolean checkBeforePut = false;
+    private Boolean _checkBeforePut = false;
+
+    @Option(name="-tenant")
+    private String _tenant;
 
     public static void main(String[] args) throws Throwable
     {
         new App().doMain(args);
     }
 
-    private void doMain(String[] args) throws IOException, PlatformException {
+    private void doMain(String[] args) throws IOException {
         CmdLineParser parser = new CmdLineParser(this);
 
         // if you have a wider console, you could increase the value;
@@ -103,7 +99,7 @@ public class App {
 
         System.out.println("input file: " + filePath);
         System.out.println("nameNode: " + nameNode);
-        System.out.println("checkBeforePut? " + checkBeforePut);
+        System.out.println("checkBeforePut? " + _checkBeforePut);
 
         String HDFS = "hdfs://" + nameNode + ":9000";
         String JOB_TRACKER = nameNode + ":9001";
@@ -120,6 +116,8 @@ public class App {
         conf.set("fs.default.name", HDFS);
         conf.set("mapred.job.tracker", JOB_TRACKER);
         conf.set("mapred.map.tasks", "84");
+        conf.set("com.ohadr.tenant", _tenant);
+        conf.set("com.ohadr.checkBeforePut", String.valueOf(_checkBeforePut) );
 
         JobConf jobConf = new JobConf(conf, App.class);
         Properties properties = AppProps.appProps().setName("id-generator").setVersion("1.0").buildProperties(jobConf);
@@ -150,28 +148,37 @@ public class App {
     }
 
 
-    private void createHBaseTable() throws IOException, PlatformException
+    private void createHBaseTable() throws IOException
     {
         Configuration hBaseConfig = Config.instance().getConfiguration();
-        hBaseIDRepository.configureHBase(hBaseConfig, ID_GEN_TABLE_NAME);
-        System.out.println("created table name: " + ID_GEN_TABLE_NAME);
+
+        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
+        if (hbaseAdmin.tableExists( getTableName( _tenant ) ) ) {
+            return;
+        }
+        HTableDescriptor desc = new HTableDescriptor( getTableName( _tenant ) );
+        desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
+        hbaseAdmin.createTable(desc, createSplitKeys());
+
+        System.out.println("created table name: " + getTableName( _tenant ) );
     }
 
-    private void persistTimestamp()
-    {
-        ConfigurationServiceClient configurationServiceClient =
-//                ServiceUtils.getService(ConfigurationServiceClient.class);
-                new ConfigurationServiceClientImpl();
-        ConfigurationValueDTO valueDTO = new ConfigurationValueDTO();
-        valueDTO.setDateValue( new Date(System.currentTimeMillis()) );
-        configurationServiceClient.set(BIGDATA_MIGRATION_IDGENERATION_DATE, valueDTO );
+/**
+      * create split keys
+      * @return
+      */
+    private static byte[][] createSplitKeys() {
+        RowKeyDistributorByHashPrefix distributor = new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash(MAX_BUCKETS));
+        byte[][] allDistributedKeys = distributor.getAllDistributedKeys(new byte[0]);
+        return allDistributedKeys;
     }
 
     public static String getNameNode() {
         return nameNode;
     }
 
-    public static boolean isCheckBeforePut() {
-        return checkBeforePut;
+    public static String getTableName(String tenant)
+    {
+        return tenant + ID_GEN_TABLE_NAME;
     }
 }
