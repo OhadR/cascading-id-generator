@@ -11,6 +11,13 @@ import cascading.scheme.hadoop.TextDelimited;
 import cascading.tap.Tap;
 import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
+import com.ccih.base.model.RetryStrategy;
+import com.ccih.base.model.configuration.ConfigurationValue;
+import com.ccih.base.model.configuration.ConfigurationValueDTO;
+import com.ccih.base.model.configuration.ConfigurationValueInterface;
+import com.ccih.base.service.ConfigurationServiceClient;
+import com.ccih.base.service.ConfigurationServiceClientImpl;
+import com.ccih.base.service.ServiceUtils;
 import com.ccih.common.generators.repositories.HBaseIDRepository;
 import com.ccih.common.util.PlatformException;
 import com.ccih.common.util.security.TenantHelper;
@@ -19,6 +26,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Properties;
 
 import static org.kohsuke.args4j.ExampleMode.ALL;
@@ -35,6 +43,7 @@ import org.kohsuke.args4j.Option;
 public class App {
 
     public static final int MAX_BUCKETS = 32;
+    private static final String BIGDATA_MIGRATION_IDGENERATION_DATE = "|BIGDATA|Migration|IDGenerationDate|";
     public static String ID_GEN_TABLE_NAME = TenantHelper.getTenantAwareTableName("GeneratedSessionID");
     public static String ID_GEN_TABLE_NAME_CF = "d";
     public static String ID_GEN_TABLE_NAME_QF = "ID";
@@ -45,8 +54,10 @@ public class App {
     private String filePath = "/";
 
     @Option(name="-nameNode")
-    private String nameNode = "vbox.localdomain";
+    private static String nameNode = "vbox.localdomain";
 
+    @Option(name="-checkBeforePut")
+    private static boolean checkBeforePut = false;
 
     public static void main(String[] args) throws Throwable
     {
@@ -90,9 +101,9 @@ public class App {
             return;
         }
 
-        Config.instance().setNameNode( nameNode );
-
         System.out.println("input file: " + filePath);
+        System.out.println("nameNode: " + nameNode);
+        System.out.println("checkBeforePut? " + checkBeforePut);
 
         String HDFS = "hdfs://" + nameNode + ":9000";
         String JOB_TRACKER = nameNode + ":9001";
@@ -100,6 +111,10 @@ public class App {
 
         //create table if not exists.
         createHBaseTable();
+
+//        persistTimestamp();
+
+
 
         Configuration conf = new Configuration();
         conf.set("fs.default.name", HDFS);
@@ -131,11 +146,32 @@ public class App {
                 .addTailSink(idGeneratorPipe, sink);
 
         Flow<JobConf> flow = flowConnector.connect(flowDef);
-        flow.complete();    }
+        flow.complete();
+    }
 
-    public void createHBaseTable() throws IOException, PlatformException
+
+    private void createHBaseTable() throws IOException, PlatformException
     {
         Configuration hBaseConfig = Config.instance().getConfiguration();
         hBaseIDRepository.configureHBase(hBaseConfig, ID_GEN_TABLE_NAME);
+        System.out.println("created table name: " + ID_GEN_TABLE_NAME);
+    }
+
+    private void persistTimestamp()
+    {
+        ConfigurationServiceClient configurationServiceClient =
+//                ServiceUtils.getService(ConfigurationServiceClient.class);
+                new ConfigurationServiceClientImpl();
+        ConfigurationValueDTO valueDTO = new ConfigurationValueDTO();
+        valueDTO.setDateValue( new Date(System.currentTimeMillis()) );
+        configurationServiceClient.set(BIGDATA_MIGRATION_IDGENERATION_DATE, valueDTO );
+    }
+
+    public static String getNameNode() {
+        return nameNode;
+    }
+
+    public static boolean isCheckBeforePut() {
+        return checkBeforePut;
     }
 }

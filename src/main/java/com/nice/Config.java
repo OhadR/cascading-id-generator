@@ -8,18 +8,17 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
  */
 public class Config {
 
+    //private ctor:
+    private Config() {}
+
+
     private static Config theInstance = new Config();
 
-    private String nameNode;
+    private String nameNode = App.getNameNode();
 
     public static Config instance()
     {
         return theInstance;
-    }
-
-    public void setNameNode(String newNameNode)
-    {
-        nameNode = newNameNode;
     }
 
     /**

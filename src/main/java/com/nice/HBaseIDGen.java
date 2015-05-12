@@ -13,7 +13,8 @@ import java.io.IOException;
 
 
 /**
- * This class generates ID
+ * This class generates ID.
+ * cascading Function (operate) and Operation (prepare)
  */
 public class HBaseIDGen extends BaseOperation implements Function {
 
@@ -33,6 +34,7 @@ public class HBaseIDGen extends BaseOperation implements Function {
 
             hTable = new HTable( Config.instance().getConfiguration(), App.ID_GEN_TABLE_NAME );
             logger.info("@@@ Opened HTable:" + new String(hTable.getTableName()));
+            logger.info("@@@ isCheckBeforePut:" + App.isCheckBeforePut() );
         } catch (IOException e) {
             logger.error("Cannot open HTable:" + e.getMessage());
         }
@@ -47,7 +49,7 @@ public class HBaseIDGen extends BaseOperation implements Function {
 
 //NOTE: in data from Vertica I use this line, as the file includes nothing but the session-id:
         String sessionIDAsString = tupleEntry.getTuple().getString( 0 );        //NOTE: new data
-        logger.info( "@@@ systemID: "
+        logger.debug( "@@@ systemID: "
 //                + systemIDAsString
                 + ", sessionID: " + sessionIDAsString);
         try {
