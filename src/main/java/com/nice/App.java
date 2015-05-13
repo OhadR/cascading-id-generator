@@ -12,22 +12,15 @@ import cascading.tap.Tap;
 import cascading.tap.hadoop.Hfs;
 import cascading.tuple.Fields;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.Properties;
 
 import static org.kohsuke.args4j.ExampleMode.ALL;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-import wd.RowKeyDistributorByHashPrefix;
 
 
 /**
@@ -37,23 +30,23 @@ import wd.RowKeyDistributorByHashPrefix;
  */
 public class App {
 
-    public static final int MAX_BUCKETS = 32;
-    private static final String BIGDATA_MIGRATION_IDGENERATION_DATE = "|BIGDATA|Migration|IDGenerationDate|";
-    private static String ID_GEN_TABLE_NAME = "GeneratedSessionID";      //NOTE: need to add tenant-name
-    public static String ID_GEN_TABLE_NAME_CF = "d";
-    public static String ID_GEN_TABLE_NAME_QF = "ID";
-
     @Option(name="-filePath")
     private String filePath = "/";
 
     @Option(name="-nameNode")
-    private static String nameNode = "vbox.localdomain";
+    private String nameNode = "vbox.localdomain";
+
+    @Option(name="-zookeeper")
+    private String zookeeper = "vbox.localdomain";      //bda: isr-r0-bda-dat-1.lab.il.nice.com
+
+    @Option(name="-zookeeperPort")
+    private String zookeeperPort = "2181";
 
     @Option(name="-checkBeforePut")
-    private Boolean _checkBeforePut = false;
+    private Boolean checkBeforePut = false;
 
     @Option(name="-tenant")
-    private String _tenant;
+    private String tenant;
 
     public static void main(String[] args) throws Throwable
     {
@@ -99,25 +92,22 @@ public class App {
 
         System.out.println("input file: " + filePath);
         System.out.println("nameNode: " + nameNode);
-        System.out.println("checkBeforePut? " + _checkBeforePut);
+        System.out.println("zookeeper: " + zookeeper);
+        System.out.println("zookeeperPort: " + zookeeperPort);
+        System.out.println("checkBeforePut? " + checkBeforePut);
 
         String HDFS = "hdfs://" + nameNode + ":9000";
         String JOB_TRACKER = nameNode + ":9001";
-
-
-        //create table if not exists.
-        createHBaseTable();
-
-//        persistTimestamp();
-
-
 
         Configuration conf = new Configuration();
         conf.set("fs.default.name", HDFS);
         conf.set("mapred.job.tracker", JOB_TRACKER);
         conf.set("mapred.map.tasks", "84");
-        conf.set("com.ohadr.tenant", _tenant);
-        conf.set("com.ohadr.checkBeforePut", String.valueOf(_checkBeforePut) );
+        conf.set("com.ohadr.tenant", tenant);
+        conf.set("com.ohadr.checkBeforePut", String.valueOf(checkBeforePut) );
+        conf.set("com.ohadr.nameNode", nameNode );
+        conf.set("com.ohadr.zookeeper", zookeeper );
+        conf.set("com.ohadr.zookeeperPort", zookeeperPort );
 
         JobConf jobConf = new JobConf(conf, App.class);
         Properties properties = AppProps.appProps().setName("id-generator").setVersion("1.0").buildProperties(jobConf);
@@ -145,40 +135,5 @@ public class App {
 
         Flow<JobConf> flow = flowConnector.connect(flowDef);
         flow.complete();
-    }
-
-
-    private void createHBaseTable() throws IOException
-    {
-        Configuration hBaseConfig = Config.instance().getConfiguration();
-
-        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
-        if (hbaseAdmin.tableExists( getTableName( _tenant ) ) ) {
-            return;
-        }
-        HTableDescriptor desc = new HTableDescriptor( getTableName( _tenant ) );
-        desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
-        hbaseAdmin.createTable(desc, createSplitKeys());
-
-        System.out.println("created table name: " + getTableName( _tenant ) );
-    }
-
-/**
-      * create split keys
-      * @return
-      */
-    private static byte[][] createSplitKeys() {
-        RowKeyDistributorByHashPrefix distributor = new RowKeyDistributorByHashPrefix(new RowKeyDistributorByHashPrefix.OneByteSimpleHash(MAX_BUCKETS));
-        byte[][] allDistributedKeys = distributor.getAllDistributedKeys(new byte[0]);
-        return allDistributedKeys;
-    }
-
-    public static String getNameNode() {
-        return nameNode;
-    }
-
-    public static String getTableName(String tenant)
-    {
-        return tenant + ID_GEN_TABLE_NAME;
     }
 }

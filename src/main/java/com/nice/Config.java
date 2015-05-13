@@ -11,10 +11,7 @@ public class Config {
     //private ctor:
     private Config() {}
 
-
     private static Config theInstance = new Config();
-
-    private String nameNode = App.getNameNode();
 
     public static Config instance()
     {
@@ -24,13 +21,19 @@ public class Config {
     /**
      * This method sets the HBase configuration
      * @return - configuration
+     * @param jobConf - the config of the job (includes params as the zookeeper, namenode etc)
      */
-    public Configuration getConfiguration() {
+    public Configuration getConfiguration(Configuration jobConf) {
+
+        String zookeeper = jobConf.get("com.ohadr.zookeeper");
+        String zookeeperPort = jobConf.get("com.ohadr.zookeeperPort" );
+        String nameNode = jobConf.get("com.ohadr.nameNode");
+
         Configuration hBaseConfig = HBaseConfiguration.create();
         hBaseConfig.setInt("timeout", 120000);
         hBaseConfig.set("hbase.master", "*" + nameNode + ":9000*");
-        hBaseConfig.set("hbase.zookeeper.quorum", nameNode);
-        hBaseConfig.set("hbase.zookeeper.property.clientPort", "2181");
+        hBaseConfig.set("hbase.zookeeper.quorum", zookeeper);
+        hBaseConfig.set("hbase.zookeeper.property.clientPort", zookeeperPort);
         return hBaseConfig;
     }
 }
