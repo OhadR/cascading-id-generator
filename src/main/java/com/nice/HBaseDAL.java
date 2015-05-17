@@ -13,6 +13,8 @@ import java.io.Serializable;
 
 public class HBaseDAL implements Serializable
 {
+    public static final String DELIMITER = "_";
+
     /**
      * generates the ID and write to HBase
      * @param sessionIDAsString
@@ -20,14 +22,18 @@ public class HBaseDAL implements Serializable
      * @return true if already exists.
      * @throws IOException
      */
-    public void generateSessionID(String sessionIDAsString,HTable hTable,
-                                     boolean checkBeforePut) throws IOException
+    public void generateSessionID(String systemIDAsString,
+                                  String sessionTypeAsString,
+                                  String sessionIDAsString,
+                                  HTable hTable,
+                                  boolean checkBeforePut) throws IOException
     {
+        String idStr = systemIDAsString + DELIMITER + sessionTypeAsString + DELIMITER + sessionIDAsString;
+
         RowKeyDistributorByHashPrefix distributor =
                 new RowKeyDistributorByHashPrefix( new OneByteMurmurHash(HBaseIDGen.MAX_BUCKETS) );
 
-//        Put put = new Put(distributor.getDistributedKey(Bytes.toBytes(sessionIDAsString)));
-        Put put = new Put(distributor.getDistributedKey( sessionIDAsString.getBytes() ));
+        Put put = new Put(distributor.getDistributedKey( idStr.getBytes() ));
         put.add(Bytes.toBytes(HBaseIDGen.ID_GEN_TABLE_NAME_CF), Bytes.toBytes(HBaseIDGen.ID_GEN_TABLE_NAME_QF),
                 sessionIDAsString.getBytes() );
 

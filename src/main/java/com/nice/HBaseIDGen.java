@@ -61,19 +61,21 @@ public class HBaseIDGen extends BaseOperation implements Function {
     @Override
     public void operate(FlowProcess flowProcess, FunctionCall functionCall) {
         TupleEntry tupleEntry = functionCall.getArguments();
-//NOTE: in "real data" we use this code, as 1st item is system-id and 2nd item is session-id
-//        String systemIDAsString = tupleEntry.getTuple().getString(0);
-//        String sessionIDAsString = tupleEntry.getTuple().getString(1);
+        String systemIDAsString = tupleEntry.getTuple().getString(0);
+        String sessionTypeAsString = tupleEntry.getTuple().getString(1);
+        String sessionIDAsString = tupleEntry.getTuple().getString(2);
 
-//NOTE: in data from Vertica I use this line, as the file includes nothing but the session-id:
-        String sessionIDAsString = tupleEntry.getTuple().getString( 0 );        //NOTE: new data
-        logger.debug("@@@ systemID: "
-//                + systemIDAsString
+        logger.debug("@@@ systemID: " + systemIDAsString
+                + " sessionType: " + sessionTypeAsString
                 + ", sessionID: " + sessionIDAsString);
         try {
-            hBaseDAL.generateSessionID( sessionIDAsString, hTable, checkBeforePut );
+            hBaseDAL.generateSessionID( systemIDAsString, sessionTypeAsString, sessionIDAsString, hTable, checkBeforePut );
         } catch (IOException e) {
-            logger.error("Error generating ID - "+ e.getMessage());
+            logger.error("Error generating ID - "
+                            + "for systemID: " + systemIDAsString
+                            + " sessionType: " + sessionTypeAsString
+                            + ", sessionID: " + sessionIDAsString,
+                    e.getMessage());
         }
         functionCall.getOutputCollector().add(tupleEntry);
     }
@@ -104,7 +106,7 @@ public class HBaseIDGen extends BaseOperation implements Function {
         desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
         hbaseAdmin.createTable(desc, createSplitKeys());
 
-        logger.info("created table name: " + tableName );
+        logger.info("created table name: " + tableName);
     }
 
     /**
