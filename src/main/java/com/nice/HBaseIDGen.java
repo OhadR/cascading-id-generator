@@ -9,8 +9,12 @@ import cascading.tuple.TupleEntry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.MasterNotRunningException;
+import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.io.hfile.Compression;
+import org.apache.hadoop.hbase.regionserver.StoreFile;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapred.JobConf;
 import org.slf4j.LoggerFactory;
@@ -90,24 +94,24 @@ public class HBaseIDGen extends BaseOperation implements Function {
         }
     }
 
-    private void createHBaseTable(Configuration config) throws IOException
-    {
-        Configuration hBaseConfig = Config.instance().getConfiguration(config);
-
-        String tenant = config.get("com.ohadr.tenant");
-
-        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
-        String tableName = getTableName( tenant );
-        if (hbaseAdmin.tableExists( tableName ) ) {
-            logger.info("*** NOTE: Table " + tableName + " already exists.");
-            return;
-        }
-        HTableDescriptor desc = new HTableDescriptor( tableName );
-        desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
-        hbaseAdmin.createTable(desc, createSplitKeys());
-
-        logger.info("created table name: " + tableName);
-    }
+//    private void createHBaseTable(Configuration config) throws IOException
+//    {
+//        Configuration hBaseConfig = Config.instance().getConfiguration(config);
+//
+//        String tenant = config.get("com.ohadr.tenant");
+//
+//        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
+//        String tableName = getTableName( tenant );
+//        if (hbaseAdmin.tableExists( tableName ) ) {
+//            logger.info("*** NOTE: Table " + tableName + " already exists.");
+//            return;
+//        }
+//        HTableDescriptor desc = new HTableDescriptor( tableName );
+//        desc.addFamily(new HColumnDescriptor(Bytes.toBytes(ID_GEN_TABLE_NAME_CF)));
+//        hbaseAdmin.createTable(desc, createSplitKeys());
+//
+//        logger.info("created table name: " + tableName);
+//    }
 
     /**
      * create split keys
@@ -124,6 +128,47 @@ public class HBaseIDGen extends BaseOperation implements Function {
         return tenant + ID_GEN_TABLE_NAME;
     }
 
+    /**
+     * Create a new table in HBase with a limited number of versions
+     * "new version", to support latest changes.
+     *
+     */
+    private void createHBaseTable(Configuration config) throws IOException, ZooKeeperConnectionException, MasterNotRunningException {
+
+        Configuration hBaseConfig = Config.instance().getConfiguration(config);
+        String tenant = config.get("com.ohadr.tenant");
+        String tenantAwareTableName = getTableName(tenant);
+
+        HTableDescriptor hTableDescriptor = new HTableDescriptor(tenantAwareTableName);
+        HColumnDescriptor hColumnDescriptor = new HColumnDescriptor( ID_GEN_TABLE_NAME_CF );
+
+        // Default - do not save data versions
+        hColumnDescriptor.setMaxVersions(1);
+
+        // set compression algorithm if not null
+        hColumnDescriptor.setCompressionType(Compression.Algorithm.SNAPPY);
+
+        // set bloom filter if not null
+        hColumnDescriptor.setBloomFilterType(StoreFile.BloomType.ROWCOL);
+
+
+        hTableDescriptor.addFamily(hColumnDescriptor);
+
+        HBaseAdmin hbaseAdmin = new HBaseAdmin(hBaseConfig);
+
+        if (hbaseAdmin.tableExists( tenantAwareTableName ) ) {
+            logger.info("*** NOTE: Table " + tenantAwareTableName + " already exists.");
+            return;
+        }
+        try {
+            hbaseAdmin.createTable( hTableDescriptor, createSplitKeys() );
+            logger.info("created table name: " + tenantAwareTableName);
+        }
+        finally {
+            hbaseAdmin.close();
+        }
+
+    }
 
 
 }

@@ -10,6 +10,7 @@ public class OneByteMurmurHash extends RowKeyDistributorByHashPrefix.OneByteSimp
     private int modulo;
 
     public OneByteMurmurHash(int modulo) {
+        super(modulo);
         this.modulo = modulo;
     }
 
