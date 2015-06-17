@@ -8,6 +8,12 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
  */
 public class Config {
 
+    public static final String CONF__TENANT = "com.ccih.migration.tenant";
+    public static final String CONF__CHECK_BEFORE_PUT = "com.ccih.migration.checkBeforePut";
+    public static final String CONF__NAME_NODE = "com.ccih.migration.nameNode";
+    public static final String CONF__ZOOKEEPER = "com.ccih.migration.zookeeper";
+    public static final String CONF__ZOOKEEPER_PORT = "com.ccih.migration.zookeeperPort";
+
     //private ctor:
     private Config() {}
 
@@ -25,9 +31,9 @@ public class Config {
      */
     public Configuration getConfiguration(Configuration jobConf) {
 
-        String zookeeper = jobConf.get("com.ohadr.zookeeper");
-        String zookeeperPort = jobConf.get("com.ohadr.zookeeperPort" );
-        String nameNode = jobConf.get("com.ohadr.nameNode");
+        String zookeeper = jobConf.get(CONF__ZOOKEEPER);
+        String zookeeperPort = jobConf.get(CONF__ZOOKEEPER_PORT );
+        String nameNode = jobConf.get(CONF__NAME_NODE);
 
         Configuration hBaseConfig = HBaseConfiguration.create();
         hBaseConfig.setInt("timeout", 120000);

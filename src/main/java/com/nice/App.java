@@ -114,6 +114,10 @@ public class App {
 
         FlowConnector flowConnector = new HadoopFlowConnector(properties);
 
+
+        HBaseDAL.createHBaseTable( jobConf );
+
+        
         //create source and sink
         Tap sessionTap = new Hfs(new TextDelimited(false, HBaseDAL.DELIMITER), filePath);
 //        sessionTap.getScheme().setSourceFields( new Fields( "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10",
