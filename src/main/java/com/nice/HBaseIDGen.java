@@ -67,6 +67,8 @@ public class HBaseIDGen extends BaseOperation implements Function {
                 + ", sessionID: " + sessionIDAsString);
         try {
         	HBaseDAL.generateSessionID( systemIDAsString, sessionTypeAsString, sessionIDAsString, hTable, checkBeforePut );
+            //counter:
+        	flowProcess.increment("ID_MIGRATION", "sessions written to migration-table", 1);
         } catch (IOException e) {
             logger.error("Error generating ID - "
                             + "for systemID: " + systemIDAsString
